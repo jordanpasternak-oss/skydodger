@@ -1,0 +1,288 @@
+:root {
+  --void: #0d0716;
+  --dusk: #2c1852;
+  --dusk-2: #451f5e;
+  --horizon: #b8542e;
+  --meteor: #ff8a4c;
+  --meteor-core: #ffd166;
+  --comet: #ede9ff;
+  --comet-trail: #9b8dff;
+  --ink: #f5f2ff;
+  --muted: #9c90c4;
+  --panel: rgba(20, 12, 36, 0.82);
+  --border: rgba(155, 141, 255, 0.35);
+  --danger: #ff6b57;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--void);
+  color: var(--ink);
+  font-family: "Manrope", system-ui, -apple-system, sans-serif;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+}
+
+#starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--comet-trail);
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.1s forwards;
+}
+
+h1 {
+  margin: 0;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-size: clamp(36px, 8vw, 48px);
+  letter-spacing: 0.04em;
+  text-wrap: balance;
+  line-height: 1;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.22s forwards;
+}
+
+h1::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  left: -30%;
+  width: 22%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--comet), var(--comet-trail), transparent);
+  filter: blur(0.5px);
+  animation: streak 1.5s cubic-bezier(0.2, 0.7, 0.3, 1) 0.7s forwards;
+}
+
+@keyframes streak {
+  0% { left: -30%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 110%; opacity: 0; }
+}
+
+.tagline {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.32s forwards;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#stats {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  font-family: "JetBrains Mono", monospace;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.4s forwards;
+}
+
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+}
+
+.stat.best { align-items: flex-end; text-align: right; }
+
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--comet);
+}
+
+.stat.best .stat-value { color: var(--meteor-core); }
+
+.divider {
+  width: 2px;
+  background: linear-gradient(var(--comet-trail), var(--meteor));
+  clip-path: polygon(50% 0, 100% 8%, 50% 100%, 0 92%);
+  opacity: 0.6;
+}
+
+#frame {
+  position: relative;
+  padding: 18px;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.48s forwards;
+}
+
+#frame .bracket {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--comet-trail);
+  opacity: 0.85;
+}
+.bracket.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.bracket.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.bracket.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.bracket.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+canvas#game {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(155, 141, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, var(--dusk) 0%, var(--void) 100%);
+  border-radius: 4px;
+  touch-action: none;
+}
+
+.controls-hint {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.56s forwards;
+}
+
+.controls-hint kbd {
+  font-family: "JetBrains Mono", monospace;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 5, 18, 0.78);
+  backdrop-filter: blur(3px);
+  border-radius: 4px;
+}
+
+#overlay.hidden { display: none; }
+
+#overlayCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  padding: 26px 30px;
+  text-align: center;
+  max-width: 300px;
+}
+
+#overlayStatus {
+  display: block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--meteor);
+  margin-bottom: 10px;
+}
+
+#overlayTitle {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  letter-spacing: 0.02em;
+}
+
+#overlayMsg {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#overlayMsg strong {
+  color: var(--comet);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#startBtn {
+  font-family: "Rajdhani", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--comet-trail), #6f5ce0);
+  color: var(--void);
+  border: none;
+  padding: 11px 30px;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+#startBtn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+#startBtn:focus-visible {
+  outline: 2px solid var(--meteor-core);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow, h1, .tagline, #stats, #frame, .controls-hint {
+    animation: none;
+    opacity: 1;
+  }
+  h1::after { animation: none; display: none; }
+}
