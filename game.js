@@ -101,7 +101,11 @@ const WEAPON_LEVELS = {
   4: { cooldown: 10, pattern: [-9, 0, 9] },
 };
 
-const player = { w: 30, h: 30, x: W / 2 - 15, y: H - 56, speed: 6 };
+const PLAYER_Y_MIN = 14;
+const PLAYER_Y_MAX = H - 44;
+const PLAYER_START_Y = H - 56;
+
+const player = { w: 30, h: 30, x: W / 2 - 15, y: PLAYER_START_Y, speed: 6 };
 let keys = {};
 let touchFiring = false;
 let meteors = [];
@@ -129,6 +133,7 @@ bestEl.textContent = best;
 
 function resetGame() {
   player.x = W / 2 - player.w / 2;
+  player.y = PLAYER_START_Y;
   meteors = [];
   powerups = [];
   bolts = [];
@@ -257,6 +262,10 @@ function update() {
   if (keys["ArrowLeft"] || keys["a"] || keys["A"]) player.x -= player.speed;
   if (keys["ArrowRight"] || keys["d"] || keys["D"]) player.x += player.speed;
   player.x = Math.max(0, Math.min(W - player.w, player.x));
+
+  if (keys["ArrowUp"] || keys["w"] || keys["W"]) player.y -= player.speed;
+  if (keys["ArrowDown"] || keys["s"] || keys["S"]) player.y += player.speed;
+  player.y = Math.max(PLAYER_Y_MIN, Math.min(PLAYER_Y_MAX, player.y));
 
   if (elapsed % 2 === 0) {
     trail.push({ x: player.x + player.w / 2, y: player.y + player.h, life: 18, moving });
@@ -589,7 +598,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     startGame();
   }
-  if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) e.preventDefault();
 });
 
 window.addEventListener("keyup", (e) => {
@@ -609,16 +618,22 @@ if (fireBtn) {
 }
 
 let touchX = null;
+let touchY = null;
 canvas.addEventListener("touchstart", (e) => {
   touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
 });
 canvas.addEventListener("touchmove", (e) => {
   if (touchX === null) return;
   const rect = canvas.getBoundingClientRect();
-  const scale = W / rect.width;
-  const dx = (e.touches[0].clientX - touchX) * scale;
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const dx = (e.touches[0].clientX - touchX) * scaleX;
+  const dy = (e.touches[0].clientY - touchY) * scaleY;
   player.x = Math.max(0, Math.min(W - player.w, player.x + dx));
+  player.y = Math.max(PLAYER_Y_MIN, Math.min(PLAYER_Y_MAX, player.y + dy));
   touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
   e.preventDefault();
 }, { passive: false });
 
