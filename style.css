@@ -14,6 +14,7 @@
   --danger: #ff6b57;
   --shield: #63e6e0;
   --boost: #6fe7a6;
+  --laser: #ff5fa2;
 }
 
 * { box-sizing: border-box; }
@@ -189,6 +190,12 @@ h1::after {
   font-variant-numeric: tabular-nums;
 }
 
+.buff-pill.laser {
+  color: var(--laser);
+  border-color: var(--laser);
+  background: rgba(255, 95, 162, 0.1);
+}
+
 #frame {
   position: relative;
   padding: 18px;
@@ -220,6 +227,28 @@ canvas#game {
   border-radius: 4px;
   touch-action: none;
 }
+
+#fireBtn {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--laser);
+  background: rgba(255, 95, 162, 0.14);
+  color: var(--laser);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: filter 0.1s ease, transform 0.1s ease;
+}
+
+#fireBtn:hover { filter: brightness(1.2); }
+#fireBtn:active { transform: scale(0.92); }
+#fireBtn:focus-visible { outline: 2px solid var(--laser); outline-offset: 3px; }
 
 .controls-hint {
   font-size: 12px;

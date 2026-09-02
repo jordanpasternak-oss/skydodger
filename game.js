@@ -80,6 +80,7 @@ const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const bestEl = document.getElementById("best");
 const buffsEl = document.getElementById("buffs");
+const fireBtn = document.getElementById("fireBtn");
 const overlay = document.getElementById("overlay");
 const overlayStatus = document.getElementById("overlayStatus");
 const overlayTitle = document.getElementById("overlayTitle");
@@ -90,11 +91,22 @@ const W = canvas.width;
 const H = canvas.height;
 const BEST_KEY = "cometRunBest";
 const MULTIPLIER_DURATION = 480;
+const SHIELD_MAX = 3;
+const WEAPON_MAX = 4;
+
+const WEAPON_LEVELS = {
+  1: { cooldown: 17, pattern: [0] },
+  2: { cooldown: 12, pattern: [0] },
+  3: { cooldown: 12, pattern: [-6, 6] },
+  4: { cooldown: 10, pattern: [-9, 0, 9] },
+};
 
 const player = { w: 30, h: 30, x: W / 2 - 15, y: H - 56, speed: 6 };
 let keys = {};
+let touchFiring = false;
 let meteors = [];
 let powerups = [];
+let bolts = [];
 let embers = [];
 let trail = [];
 let score = 0;
@@ -106,7 +118,9 @@ let elapsed = 0;
 let running = false;
 let animId = null;
 
-let shieldActive = false;
+let shieldCharges = 0;
+let weaponLevel = 1;
+let fireCooldown = 0;
 let multiplierTime = 0;
 let spawnPowerupTimer = 0;
 let spawnPowerupInterval = 420 + Math.random() * 240;
@@ -117,6 +131,7 @@ function resetGame() {
   player.x = W / 2 - player.w / 2;
   meteors = [];
   powerups = [];
+  bolts = [];
   embers = [];
   trail = [];
   score = 0;
@@ -124,7 +139,9 @@ function resetGame() {
   spawnInterval = 66;
   baseFallSpeed = 2.3;
   elapsed = 0;
-  shieldActive = false;
+  shieldCharges = 0;
+  weaponLevel = 1;
+  fireCooldown = 0;
   multiplierTime = 0;
   spawnPowerupTimer = 0;
   spawnPowerupInterval = 420 + Math.random() * 240;
@@ -146,13 +163,15 @@ function spawnMeteor() {
 
 function spawnPowerup() {
   const size = 26;
+  const r = Math.random();
+  const type = r < 1 / 3 ? "shield" : r < 2 / 3 ? "boost" : "weapon";
   powerups.push({
     x: Math.random() * (W - size),
     y: -size,
     size,
     speed: 2,
     angle: 0,
-    type: Math.random() < 0.5 ? "shield" : "boost",
+    type,
   });
 }
 
@@ -171,9 +190,9 @@ function circleCircleOverlap(x1, y1, r1, x2, y2, r2) {
   return dx * dx + dy * dy < rr * rr;
 }
 
-function spawnEmberBurst(x, y, colors) {
+function spawnEmberBurst(x, y, colors, count) {
   const palette = colors || ["#ffd166", "#ff8a4c"];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < (count || 22); i++) {
     const a = Math.random() * Math.PI * 2;
     const speed = 1 + Math.random() * 4;
     embers.push({
@@ -189,14 +208,24 @@ function spawnEmberBurst(x, y, colors) {
 
 let shieldPillEl = null;
 let boostPillEl = null;
+let laserPillEl = null;
 
 function updateBuffsUI() {
-  if (shieldActive && !shieldPillEl) {
-    shieldPillEl = document.createElement("span");
-    shieldPillEl.className = "buff-pill shield";
-    shieldPillEl.textContent = "Shield";
-    buffsEl.appendChild(shieldPillEl);
-  } else if (!shieldActive && shieldPillEl) {
+  if (!laserPillEl) {
+    laserPillEl = document.createElement("span");
+    laserPillEl.className = "buff-pill laser";
+    buffsEl.appendChild(laserPillEl);
+  }
+  laserPillEl.textContent = `Laser · Lv ${weaponLevel}`;
+
+  if (shieldCharges > 0) {
+    if (!shieldPillEl) {
+      shieldPillEl = document.createElement("span");
+      shieldPillEl.className = "buff-pill shield";
+      buffsEl.appendChild(shieldPillEl);
+    }
+    shieldPillEl.textContent = `Shield · Lv ${shieldCharges}`;
+  } else if (shieldPillEl) {
     shieldPillEl.remove();
     shieldPillEl = null;
   }
@@ -214,6 +243,13 @@ function updateBuffsUI() {
   }
 }
 
+function fireBolts(cx) {
+  const config = WEAPON_LEVELS[weaponLevel];
+  for (const offset of config.pattern) {
+    bolts.push({ x: cx + offset, y: player.y });
+  }
+}
+
 function update() {
   elapsed++;
 
@@ -227,6 +263,14 @@ function update() {
   }
   for (const t of trail) t.life--;
   trail = trail.filter((t) => t.life > 0);
+
+  if (fireCooldown > 0) fireCooldown--;
+  if ((keys[" "] || touchFiring) && fireCooldown <= 0) {
+    fireCooldown = WEAPON_LEVELS[weaponLevel].cooldown;
+    fireBolts(player.x + player.w / 2);
+  }
+  for (const b of bolts) b.y -= 9;
+  bolts = bolts.filter((b) => b.y > -20);
 
   spawnTimer++;
   if (spawnTimer >= spawnInterval) {
@@ -258,14 +302,33 @@ function update() {
   }
   powerups = powerups.filter((p) => p.y < H + 40);
 
+  const meteorsHit = new Set();
+  const boltsUsed = new Set();
+  for (const b of bolts) {
+    for (const m of meteors) {
+      if (meteorsHit.has(m) || boltsUsed.has(b)) continue;
+      const dx = b.x - (m.x + m.size / 2);
+      const dy = b.y - (m.y + m.size / 2);
+      if (Math.hypot(dx, dy) < m.size / 2 + 4) {
+        meteorsHit.add(m);
+        boltsUsed.add(b);
+        spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ffd166", "#ff8a4c"], 14);
+        score += (multiplierTime > 0 ? 2 : 1) * 15;
+        break;
+      }
+    }
+  }
+  if (meteorsHit.size) meteors = meteors.filter((m) => !meteorsHit.has(m));
+  if (boltsUsed.size) bolts = bolts.filter((b) => !boltsUsed.has(b));
+
   const cx = player.x + player.w / 2;
   const cy = player.y + player.h / 2;
   const pr = player.w / 2 - 3;
 
   for (const m of meteors) {
     if (circleRectOverlap(cx, cy, pr + m.size / 2, { x: m.x, y: m.y, w: m.size, h: m.size })) {
-      if (shieldActive) {
-        shieldActive = false;
+      if (shieldCharges > 0) {
+        shieldCharges--;
         meteors = meteors.filter((mm) => mm !== m);
         spawnEmberBurst(cx, cy, ["#63e6e0", "#ede9ff"]);
         updateBuffsUI();
@@ -280,8 +343,15 @@ function update() {
   for (const p of powerups) {
     if (circleCircleOverlap(cx, cy, pr, p.x + p.size / 2, p.y + p.size / 2, p.size / 2)) {
       if (p.type === "shield") {
-        shieldActive = true;
+        shieldCharges = Math.min(shieldCharges + 1, SHIELD_MAX);
         spawnEmberBurst(cx, cy, ["#63e6e0", "#ede9ff"]);
+      } else if (p.type === "weapon") {
+        if (weaponLevel < WEAPON_MAX) {
+          weaponLevel++;
+        } else {
+          score += (multiplierTime > 0 ? 2 : 1) * 50;
+        }
+        spawnEmberBurst(cx, cy, ["#ff5fa2", "#ede9ff"]);
       } else {
         multiplierTime = Math.min(multiplierTime + MULTIPLIER_DURATION, MULTIPLIER_DURATION * 2);
         spawnEmberBurst(cx, cy, ["#6fe7a6", "#ffd166"]);
@@ -357,6 +427,23 @@ function drawPowerup(p) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+  } else if (p.type === "weapon") {
+    ctx.shadowColor = "#ff5fa2";
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = "#ff5fa2";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, r * 0.15);
+    ctx.lineTo(0, -r * 0.65);
+    ctx.lineTo(r * 0.55, r * 0.15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.55, r * 0.7);
+    ctx.lineTo(0, -r * 0.1);
+    ctx.lineTo(r * 0.55, r * 0.7);
+    ctx.stroke();
   } else {
     ctx.shadowColor = "#6fe7a6";
     ctx.shadowBlur = 14;
@@ -373,6 +460,24 @@ function drawPowerup(p) {
     }
     ctx.closePath();
     ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBolt(b) {
+  ctx.save();
+  ctx.shadowColor = "#c9c2ff";
+  ctx.shadowBlur = 8;
+  const grad = ctx.createLinearGradient(b.x, b.y - 11, b.x, b.y + 5);
+  grad.addColorStop(0, "#ffffff");
+  grad.addColorStop(1, "#9b8dff");
+  ctx.fillStyle = grad;
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(b.x - 2, b.y - 11, 4, 16, 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(b.x - 2, b.y - 11, 4, 16);
   }
   ctx.restore();
 }
@@ -404,16 +509,18 @@ function drawPlayer() {
   ctx.fill();
   ctx.restore();
 
-  if (shieldActive) {
+  if (shieldCharges > 0) {
     ctx.save();
     ctx.strokeStyle = "#63e6e0";
     ctx.shadowColor = "#63e6e0";
     ctx.shadowBlur = 10;
     ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.75 + Math.sin(elapsed * 0.15) * 0.2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
-    ctx.stroke();
+    for (let i = 0; i < shieldCharges; i++) {
+      ctx.globalAlpha = (0.7 + Math.sin(elapsed * 0.15 + i) * 0.2) * (1 - i * 0.18);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 6 + i * 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -423,6 +530,7 @@ function draw() {
 
   for (const m of meteors) drawMeteor(m);
   for (const p of powerups) drawPowerup(p);
+  for (const b of bolts) drawBolt(b);
   drawPlayer();
 
   for (const e of embers) {
@@ -463,6 +571,7 @@ function gameOver() {
   overlay.classList.remove("hidden");
   if (shieldPillEl) { shieldPillEl.remove(); shieldPillEl = null; }
   if (boostPillEl) { boostPillEl.remove(); boostPillEl = null; }
+  if (laserPillEl) { laserPillEl.remove(); laserPillEl = null; }
 }
 
 function startGame() {
@@ -486,6 +595,18 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   keys[e.key] = false;
 });
+
+if (fireBtn) {
+  const setFiring = (val) => (e) => {
+    touchFiring = val;
+    e.preventDefault();
+  };
+  fireBtn.addEventListener("touchstart", setFiring(true), { passive: false });
+  fireBtn.addEventListener("touchend", setFiring(false), { passive: false });
+  fireBtn.addEventListener("mousedown", setFiring(true));
+  fireBtn.addEventListener("mouseup", setFiring(false));
+  fireBtn.addEventListener("mouseleave", setFiring(false));
+}
 
 let touchX = null;
 canvas.addEventListener("touchstart", (e) => {
