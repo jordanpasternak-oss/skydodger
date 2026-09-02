@@ -123,7 +123,7 @@ let weaponLevel = 1;
 let fireCooldown = 0;
 let multiplierTime = 0;
 let spawnPowerupTimer = 0;
-let spawnPowerupInterval = 420 + Math.random() * 240;
+let spawnPowerupInterval = 260 + Math.random() * 160;
 
 bestEl.textContent = best;
 
@@ -144,7 +144,7 @@ function resetGame() {
   fireCooldown = 0;
   multiplierTime = 0;
   spawnPowerupTimer = 0;
-  spawnPowerupInterval = 420 + Math.random() * 240;
+  spawnPowerupInterval = 260 + Math.random() * 160;
   scoreEl.textContent = "0";
   updateBuffsUI();
 }
@@ -164,7 +164,7 @@ function spawnMeteor() {
 function spawnPowerup() {
   const size = 26;
   const r = Math.random();
-  const type = r < 1 / 3 ? "shield" : r < 2 / 3 ? "boost" : "weapon";
+  const type = r < 0.5 ? "weapon" : r < 0.75 ? "shield" : "boost";
   powerups.push({
     x: Math.random() * (W - size),
     y: -size,
@@ -281,7 +281,7 @@ function update() {
   spawnPowerupTimer++;
   if (spawnPowerupTimer >= spawnPowerupInterval && powerups.length === 0) {
     spawnPowerupTimer = 0;
-    spawnPowerupInterval = 420 + Math.random() * 240;
+    spawnPowerupInterval = 260 + Math.random() * 160;
     spawnPowerup();
   }
 
