@@ -108,6 +108,12 @@ const PLAYER_START_Y = H - 56;
 const SHIP_NOSE_Y = -20;
 const SHIP_TAIL_Y = 20;
 
+const SPAWN_INTERVAL_START = 66;
+const SPAWN_INTERVAL_MIN = 14;
+const SPAWN_RAMP_RATE = 0.0217;
+const FALL_SPEED_START = 2.3;
+const FALL_SPEED_RAMP_RATE = 0.0015;
+
 const player = { w: 30, h: 30, x: W / 2 - 15, y: PLAYER_START_Y, speed: 6 };
 let keys = {};
 let touchFiring = false;
@@ -119,8 +125,8 @@ let trail = [];
 let score = 0;
 let best = Number(localStorage.getItem(BEST_KEY)) || 0;
 let spawnTimer = 0;
-let spawnInterval = 66;
-let baseFallSpeed = 2.3;
+let spawnInterval = SPAWN_INTERVAL_START;
+let baseFallSpeed = FALL_SPEED_START;
 let elapsed = 0;
 let running = false;
 let animId = null;
@@ -144,8 +150,8 @@ function resetGame() {
   trail = [];
   score = 0;
   spawnTimer = 0;
-  spawnInterval = 66;
-  baseFallSpeed = 2.3;
+  spawnInterval = SPAWN_INTERVAL_START;
+  baseFallSpeed = FALL_SPEED_START;
   elapsed = 0;
   shieldCharges = 0;
   weaponLevel = 1;
@@ -298,10 +304,8 @@ function update() {
     spawnPowerup();
   }
 
-  if (elapsed % 300 === 0) {
-    spawnInterval = Math.max(20, spawnInterval - 4);
-    baseFallSpeed += 0.3;
-  }
+  spawnInterval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval - SPAWN_RAMP_RATE);
+  baseFallSpeed += FALL_SPEED_RAMP_RATE;
 
   for (const m of meteors) {
     m.y += m.speed;
