@@ -12,6 +12,8 @@
   --panel: rgba(20, 12, 36, 0.82);
   --border: rgba(155, 141, 255, 0.35);
   --danger: #ff6b57;
+  --shield: #63e6e0;
+  --boost: #6fe7a6;
 }
 
 * { box-sizing: border-box; }
@@ -152,6 +154,39 @@ h1::after {
   background: linear-gradient(var(--comet-trail), var(--meteor));
   clip-path: polygon(50% 0, 100% 8%, 50% 100%, 0 92%);
   opacity: 0.6;
+}
+
+#buffs {
+  display: flex;
+  gap: 8px;
+  min-height: 24px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.buff-pill {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  animation: fade-up 0.25s ease-out;
+}
+
+.buff-pill.shield {
+  color: var(--shield);
+  border-color: var(--shield);
+  background: rgba(99, 230, 224, 0.1);
+}
+
+.buff-pill.boost {
+  color: var(--boost);
+  border-color: var(--boost);
+  background: rgba(111, 231, 166, 0.1);
+  font-variant-numeric: tabular-nums;
 }
 
 #frame {

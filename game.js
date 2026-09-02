@@ -79,6 +79,7 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const bestEl = document.getElementById("best");
+const buffsEl = document.getElementById("buffs");
 const overlay = document.getElementById("overlay");
 const overlayStatus = document.getElementById("overlayStatus");
 const overlayTitle = document.getElementById("overlayTitle");
@@ -88,10 +89,12 @@ const startBtn = document.getElementById("startBtn");
 const W = canvas.width;
 const H = canvas.height;
 const BEST_KEY = "cometRunBest";
+const MULTIPLIER_DURATION = 480;
 
 const player = { w: 30, h: 30, x: W / 2 - 15, y: H - 56, speed: 6 };
 let keys = {};
 let meteors = [];
+let powerups = [];
 let embers = [];
 let trail = [];
 let score = 0;
@@ -103,11 +106,17 @@ let elapsed = 0;
 let running = false;
 let animId = null;
 
+let shieldActive = false;
+let multiplierTime = 0;
+let spawnPowerupTimer = 0;
+let spawnPowerupInterval = 420 + Math.random() * 240;
+
 bestEl.textContent = best;
 
 function resetGame() {
   player.x = W / 2 - player.w / 2;
   meteors = [];
+  powerups = [];
   embers = [];
   trail = [];
   score = 0;
@@ -115,7 +124,12 @@ function resetGame() {
   spawnInterval = 66;
   baseFallSpeed = 2.3;
   elapsed = 0;
+  shieldActive = false;
+  multiplierTime = 0;
+  spawnPowerupTimer = 0;
+  spawnPowerupInterval = 420 + Math.random() * 240;
   scoreEl.textContent = "0";
+  updateBuffsUI();
 }
 
 function spawnMeteor() {
@@ -130,6 +144,18 @@ function spawnMeteor() {
   });
 }
 
+function spawnPowerup() {
+  const size = 26;
+  powerups.push({
+    x: Math.random() * (W - size),
+    y: -size,
+    size,
+    speed: 2,
+    angle: 0,
+    type: Math.random() < 0.5 ? "shield" : "boost",
+  });
+}
+
 function circleRectOverlap(cx, cy, r, rect) {
   const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
   const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
@@ -138,7 +164,15 @@ function circleRectOverlap(cx, cy, r, rect) {
   return dx * dx + dy * dy < r * r;
 }
 
-function spawnEmberBurst(x, y) {
+function circleCircleOverlap(x1, y1, r1, x2, y2, r2) {
+  const dx = x1 - x2;
+  const dy = y1 - y2;
+  const rr = r1 + r2;
+  return dx * dx + dy * dy < rr * rr;
+}
+
+function spawnEmberBurst(x, y, colors) {
+  const palette = colors || ["#ffd166", "#ff8a4c"];
   for (let i = 0; i < 22; i++) {
     const a = Math.random() * Math.PI * 2;
     const speed = 1 + Math.random() * 4;
@@ -148,7 +182,35 @@ function spawnEmberBurst(x, y) {
       vy: Math.sin(a) * speed,
       life: 32,
       r: 1.5 + Math.random() * 2,
+      color: palette[Math.floor(Math.random() * palette.length)],
     });
+  }
+}
+
+let shieldPillEl = null;
+let boostPillEl = null;
+
+function updateBuffsUI() {
+  if (shieldActive && !shieldPillEl) {
+    shieldPillEl = document.createElement("span");
+    shieldPillEl.className = "buff-pill shield";
+    shieldPillEl.textContent = "Shield";
+    buffsEl.appendChild(shieldPillEl);
+  } else if (!shieldActive && shieldPillEl) {
+    shieldPillEl.remove();
+    shieldPillEl = null;
+  }
+
+  if (multiplierTime > 0) {
+    if (!boostPillEl) {
+      boostPillEl = document.createElement("span");
+      boostPillEl.className = "buff-pill boost";
+      buffsEl.appendChild(boostPillEl);
+    }
+    boostPillEl.textContent = `×2 · ${(multiplierTime / 60).toFixed(1)}s`;
+  } else if (boostPillEl) {
+    boostPillEl.remove();
+    boostPillEl = null;
   }
 }
 
@@ -172,6 +234,13 @@ function update() {
     spawnMeteor();
   }
 
+  spawnPowerupTimer++;
+  if (spawnPowerupTimer >= spawnPowerupInterval && powerups.length === 0) {
+    spawnPowerupTimer = 0;
+    spawnPowerupInterval = 420 + Math.random() * 240;
+    spawnPowerup();
+  }
+
   if (elapsed % 300 === 0) {
     spawnInterval = Math.max(20, spawnInterval - 4);
     baseFallSpeed += 0.3;
@@ -183,15 +252,49 @@ function update() {
   }
   meteors = meteors.filter((m) => m.y < H + 40);
 
+  for (const p of powerups) {
+    p.y += p.speed;
+    p.angle += 0.03;
+  }
+  powerups = powerups.filter((p) => p.y < H + 40);
+
   const cx = player.x + player.w / 2;
   const cy = player.y + player.h / 2;
   const pr = player.w / 2 - 3;
+
   for (const m of meteors) {
     if (circleRectOverlap(cx, cy, pr + m.size / 2, { x: m.x, y: m.y, w: m.size, h: m.size })) {
-      spawnEmberBurst(cx, cy);
+      if (shieldActive) {
+        shieldActive = false;
+        meteors = meteors.filter((mm) => mm !== m);
+        spawnEmberBurst(cx, cy, ["#63e6e0", "#ede9ff"]);
+        updateBuffsUI();
+        break;
+      }
+      spawnEmberBurst(cx, cy, ["#ffd166", "#ff8a4c"]);
       gameOver();
       return;
     }
+  }
+
+  for (const p of powerups) {
+    if (circleCircleOverlap(cx, cy, pr, p.x + p.size / 2, p.y + p.size / 2, p.size / 2)) {
+      if (p.type === "shield") {
+        shieldActive = true;
+        spawnEmberBurst(cx, cy, ["#63e6e0", "#ede9ff"]);
+      } else {
+        multiplierTime = Math.min(multiplierTime + MULTIPLIER_DURATION, MULTIPLIER_DURATION * 2);
+        spawnEmberBurst(cx, cy, ["#6fe7a6", "#ffd166"]);
+      }
+      powerups = powerups.filter((pp) => pp !== p);
+      updateBuffsUI();
+      break;
+    }
+  }
+
+  if (multiplierTime > 0) {
+    multiplierTime--;
+    if (multiplierTime % 6 === 0) updateBuffsUI();
   }
 
   for (const e of embers) {
@@ -202,7 +305,7 @@ function update() {
   }
   embers = embers.filter((e) => e.life > 0);
 
-  score += 1;
+  score += multiplierTime > 0 ? 2 : 1;
   scoreEl.textContent = Math.floor(score / 10);
 }
 
@@ -228,6 +331,49 @@ function drawMeteor(m) {
   }
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+function drawPowerup(p) {
+  ctx.save();
+  ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+  ctx.rotate(p.angle);
+  const r = p.size / 2;
+
+  if (p.type === "shield") {
+    ctx.shadowColor = "#63e6e0";
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = "#63e6e0";
+    ctx.lineWidth = 2.5;
+    ctx.fillStyle = "rgba(99, 230, 224, 0.18)";
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const px = Math.cos(a) * r * 0.85;
+      const py = Math.sin(a) * r * 0.85;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.shadowColor = "#6fe7a6";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#6fe7a6";
+    ctx.beginPath();
+    const spikes = 4;
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (i / (spikes * 2)) * Math.PI * 2;
+      const rr = i % 2 === 0 ? r : r * 0.4;
+      const px = Math.cos(a) * rr;
+      const py = Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -257,17 +403,31 @@ function drawPlayer() {
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  if (shieldActive) {
+    ctx.save();
+    ctx.strokeStyle = "#63e6e0";
+    ctx.shadowColor = "#63e6e0";
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.75 + Math.sin(elapsed * 0.15) * 0.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
   for (const m of meteors) drawMeteor(m);
+  for (const p of powerups) drawPowerup(p);
   drawPlayer();
 
   for (const e of embers) {
     ctx.globalAlpha = Math.max(e.life / 32, 0);
-    ctx.fillStyle = e.r > 2.5 ? "#ffd166" : "#ff8a4c";
+    ctx.fillStyle = e.color;
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
@@ -301,6 +461,8 @@ function gameOver() {
     : `Score <strong>${finalScore}</strong> &middot; Best <strong>${best}</strong>`;
   startBtn.textContent = "Relaunch";
   overlay.classList.remove("hidden");
+  if (shieldPillEl) { shieldPillEl.remove(); shieldPillEl = null; }
+  if (boostPillEl) { boostPillEl.remove(); boostPillEl = null; }
 }
 
 function startGame() {
