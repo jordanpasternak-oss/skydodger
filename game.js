@@ -105,6 +105,9 @@ const PLAYER_Y_MIN = 14;
 const PLAYER_Y_MAX = H - 44;
 const PLAYER_START_Y = H - 56;
 
+const SHIP_NOSE_Y = -20;
+const SHIP_TAIL_Y = 20;
+
 const player = { w: 30, h: 30, x: W / 2 - 15, y: PLAYER_START_Y, speed: 6 };
 let keys = {};
 let touchFiring = false;
@@ -250,8 +253,9 @@ function updateBuffsUI() {
 
 function fireBolts(cx) {
   const config = WEAPON_LEVELS[weaponLevel];
+  const noseY = player.y + player.h / 2 + SHIP_NOSE_Y;
   for (const offset of config.pattern) {
-    bolts.push({ x: cx + offset, y: player.y });
+    bolts.push({ x: cx + offset, y: noseY });
   }
 }
 
@@ -268,7 +272,7 @@ function update() {
   player.y = Math.max(PLAYER_Y_MIN, Math.min(PLAYER_Y_MAX, player.y));
 
   if (elapsed % 2 === 0) {
-    trail.push({ x: player.x + player.w / 2, y: player.y + player.h, life: 18, moving });
+    trail.push({ x: player.x + player.w / 2, y: player.y + player.h / 2 + SHIP_TAIL_Y, life: 18, moving });
   }
   for (const t of trail) t.life--;
   trail = trail.filter((t) => t.life > 0);
@@ -506,15 +510,29 @@ function drawPlayer() {
   ctx.globalAlpha = 1;
 
   ctx.save();
+  ctx.translate(cx, cy);
   ctx.shadowColor = "#9b8dff";
   ctx.shadowBlur = 16;
-  const grad = ctx.createRadialGradient(cx, cy - r * 0.2, r * 0.1, cx, cy, r);
+  const grad = ctx.createLinearGradient(0, SHIP_NOSE_Y, 0, SHIP_TAIL_Y);
   grad.addColorStop(0, "#ffffff");
-  grad.addColorStop(0.5, "#ede9ff");
+  grad.addColorStop(0.45, "#ede9ff");
   grad.addColorStop(1, "#9b8dff");
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.moveTo(0, SHIP_NOSE_Y);
+  ctx.lineTo(6, -8);
+  ctx.lineTo(17, 16);
+  ctx.lineTo(5, 11);
+  ctx.lineTo(0, SHIP_TAIL_Y);
+  ctx.lineTo(-5, 11);
+  ctx.lineTo(-17, 16);
+  ctx.lineTo(-6, -8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#2c1852";
+  ctx.beginPath();
+  ctx.arc(0, -11, 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
