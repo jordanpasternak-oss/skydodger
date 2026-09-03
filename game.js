@@ -94,13 +94,14 @@ const H = canvas.height;
 const BEST_KEY = "cometRunBest";
 const MULTIPLIER_DURATION = 480;
 const SHIELD_MAX = 3;
-const WEAPON_MAX = 4;
+const WEAPON_MAX = 5;
 
 const WEAPON_LEVELS = {
   1: { cooldown: 17, pattern: [0] },
   2: { cooldown: 12, pattern: [0] },
   3: { cooldown: 12, pattern: [-6, 6] },
   4: { cooldown: 10, pattern: [-9, 0, 9] },
+  5: { cooldown: 10, pattern: [-9, 0, 9], pierce: 1 },
 };
 
 const PLAYER_Y_MIN = 14;
@@ -115,6 +116,13 @@ const SPAWN_INTERVAL_MIN = 14;
 const SPAWN_RAMP_RATE = 0.0217;
 const FALL_SPEED_START = 2.3;
 const FALL_SPEED_RAMP_RATE = 0.0015;
+const FALL_SPEED_MAX = 9.5;
+const VOLLEY_INTERVAL = 480; // ~8s at 60fps, once spawn rate & fall speed are both maxed
+const ARMORED_METEOR_START = 3600; // ~60s at 60fps
+const ARMORED_METEOR_INTERVAL = 600; // ~10s, replaces the next normal spawn
+const POWERUP_TOP_BIAS_START = 1800; // ~30s, past the early game
+const METEOR_KILL_SCORE = 15;
+const ARMORED_KILL_SCORE = 30;
 
 const MATH_FALL_SPEED_BASE = 1.1;
 const MATH_METEOR_SIZE = 40;
@@ -134,6 +142,8 @@ let best = Number(localStorage.getItem(BEST_KEY)) || 0;
 let spawnTimer = 0;
 let spawnInterval = SPAWN_INTERVAL_START;
 let baseFallSpeed = FALL_SPEED_START;
+let volleyTimer = 0;
+let armoredTimer = 0;
 let elapsed = 0;
 let running = false;
 let animId = null;
@@ -173,6 +183,8 @@ function resetGame() {
   spawnTimer = 0;
   spawnInterval = SPAWN_INTERVAL_START;
   baseFallSpeed = FALL_SPEED_START;
+  volleyTimer = 0;
+  armoredTimer = 0;
   elapsed = 0;
   shieldCharges = 0;
   weaponLevel = 1;
@@ -200,6 +212,39 @@ function spawnMeteor() {
     angle: Math.random() * Math.PI * 2,
     spin: (Math.random() - 0.5) * 0.08,
   });
+}
+
+function spawnArmoredMeteor() {
+  const size = 46 + Math.random() * 14;
+  meteors.push({
+    x: Math.random() * (W - size),
+    y: -size,
+    size,
+    speed: baseFallSpeed + Math.random() * 1.5,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.06,
+    armored: true,
+    hp: 2,
+  });
+}
+
+function spawnVolley() {
+  const meteorCount = 3 + Math.floor(Math.random() * 2); // 3 or 4 meteors
+  const lanes = meteorCount + 1; // + 1 deliberate gap lane
+  const gapLane = Math.floor(Math.random() * lanes);
+  const slotW = W / lanes;
+  for (let i = 0; i < lanes; i++) {
+    if (i === gapLane) continue;
+    const size = 22 + Math.random() * 24;
+    meteors.push({
+      x: slotW * i + slotW / 2 - size / 2,
+      y: -size,
+      size,
+      speed: baseFallSpeed + Math.random() * 1.5,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.08,
+    });
+  }
 }
 
 function generateEquation(level) {
@@ -269,10 +314,15 @@ function spawnEquationMeteors() {
 function spawnPowerup() {
   const size = 26;
   const r = Math.random();
-  const type = r < 0.5 ? "weapon" : r < 0.75 ? "shield" : "boost";
+  const weaponAvailable = weaponLevel < WEAPON_MAX;
+  const type = weaponAvailable
+    ? (r < 0.5 ? "weapon" : r < 0.75 ? "shield" : "boost")
+    : (r < 0.5 ? "shield" : "boost");
+  const topBiased = (type === "weapon" || type === "shield") && elapsed >= POWERUP_TOP_BIAS_START;
+  const y = topBiased ? -size + Math.random() * (H / 3 + size) : -size;
   powerups.push({
     x: Math.random() * (W - size),
-    y: -size,
+    y,
     size,
     speed: 2,
     angle: 0,
@@ -293,6 +343,12 @@ function circleCircleOverlap(x1, y1, r1, x2, y2, r2) {
   const dy = y1 - y2;
   const rr = r1 + r2;
   return dx * dx + dy * dy < rr * rr;
+}
+
+// 1.5x near the top of the play field, scaling down to 1x near the bottom.
+function killHeightFactor(y) {
+  const ratio = Math.max(0, Math.min(1, 1 - y / H));
+  return 1 + ratio * 0.5;
 }
 
 function spawnEmberBurst(x, y, colors, count) {
@@ -321,7 +377,7 @@ function updateBuffsUI() {
     laserPillEl.className = "buff-pill laser";
     buffsEl.appendChild(laserPillEl);
   }
-  laserPillEl.textContent = `Laser · Lv ${weaponLevel}`;
+  laserPillEl.textContent = weaponLevel >= WEAPON_MAX ? "Laser · Overcharge" : `Laser · Lv ${weaponLevel}`;
 
   if (shieldCharges > 0) {
     if (!shieldPillEl) {
@@ -352,7 +408,9 @@ function fireBolts(cx) {
   const config = WEAPON_LEVELS[weaponLevel];
   const noseY = player.y + player.h / 2 + SHIP_NOSE_Y;
   for (const offset of config.pattern) {
-    bolts.push({ x: cx + offset, y: noseY });
+    // pierce budget lives on the bolt itself so it survives across frames
+    // (a bolt keeps flying after a partial hit, not just within one frame).
+    bolts.push({ x: cx + offset, y: noseY, pierce: (config.pierce || 0) + 1 });
   }
 }
 
@@ -388,9 +446,29 @@ function update() {
     }
   } else {
     spawnTimer++;
-    if (spawnTimer >= spawnInterval) {
+    if (elapsed >= ARMORED_METEOR_START) armoredTimer++;
+
+    // Armored meteors take over an occasional normal spawn tick rather than
+    // adding to the spawn rate, so overall density is unchanged.
+    if (elapsed >= ARMORED_METEOR_START && armoredTimer >= ARMORED_METEOR_INTERVAL && spawnTimer >= spawnInterval) {
+      armoredTimer = 0;
+      spawnTimer = 0;
+      spawnArmoredMeteor();
+    } else if (spawnTimer >= spawnInterval) {
       spawnTimer = 0;
       spawnMeteor();
+    }
+
+    // Once frequency and speed both cap out, difficulty keeps climbing via
+    // gap-finding volleys instead of ever-faster single meteors.
+    const difficultyMaxed = spawnInterval <= SPAWN_INTERVAL_MIN && baseFallSpeed >= FALL_SPEED_MAX;
+    if (difficultyMaxed) {
+      volleyTimer++;
+      if (volleyTimer >= VOLLEY_INTERVAL) {
+        volleyTimer = 0;
+        spawnTimer = 0; // avoid an immediate extra single spawn right on top of the volley
+        spawnVolley();
+      }
     }
 
     spawnPowerupTimer++;
@@ -401,7 +479,7 @@ function update() {
     }
 
     spawnInterval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval - SPAWN_RAMP_RATE);
-    baseFallSpeed += FALL_SPEED_RAMP_RATE;
+    baseFallSpeed = Math.min(FALL_SPEED_MAX, baseFallSpeed + FALL_SPEED_RAMP_RATE);
   }
 
   for (const m of meteors) {
@@ -421,13 +499,14 @@ function update() {
   let correctHit = false;
   for (const b of bolts) {
     for (const m of meteors) {
-      if (meteorsHit.has(m) || boltsUsed.has(b)) continue;
+      if (b.pierce <= 0) break;
+      if (meteorsHit.has(m)) continue;
       const dx = b.x - (m.x + m.size / 2);
       const dy = b.y - (m.y + m.size / 2);
       if (Math.hypot(dx, dy) < m.size / 2 + 4) {
-        meteorsHit.add(m);
-        boltsUsed.add(b);
+        b.pierce--;
         if (m.isNumber) {
+          meteorsHit.add(m);
           if (m.correct) {
             correctHit = true;
             const answerTime = (elapsed - equationStartFrame) / 60;
@@ -444,10 +523,20 @@ function update() {
             spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ff6b57", "#ede9ff"], 10);
           }
         } else {
-          spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ffd166", "#ff8a4c"], 14);
-          score += (multiplierTime > 0 ? 2 : 1) * 15;
+          // Armored meteors have hp 2 and need a second hit; plain meteors
+          // have no hp set, so (m.hp || 1) - 1 destroys them on the first hit.
+          m.hp = (m.hp || 1) - 1;
+          if (m.hp > 0) {
+            spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#c9d4e0", "#ff8a4c"], 8);
+          } else {
+            meteorsHit.add(m);
+            const baseScore = m.armored ? ARMORED_KILL_SCORE : METEOR_KILL_SCORE;
+            const heightFactor = killHeightFactor(m.y);
+            score += Math.round((multiplierTime > 0 ? 2 : 1) * baseScore * heightFactor);
+            spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ffd166", "#ff8a4c"], m.armored ? 22 : 14);
+          }
         }
-        break;
+        if (b.pierce <= 0) boltsUsed.add(b);
       }
     }
   }
@@ -535,6 +624,34 @@ function drawMeteor(m) {
   }
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+function drawArmoredMeteor(m) {
+  ctx.save();
+  ctx.translate(m.x + m.size / 2, m.y + m.size / 2);
+  ctx.rotate(m.angle);
+  const r = m.size / 2;
+  const grad = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+  grad.addColorStop(0, "#c9d4e0");
+  grad.addColorStop(0.55, "#7c8ba1");
+  grad.addColorStop(1, "#333d4d");
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = m.hp > 1 ? "#ff8a4c" : "#ff4c4c";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  const spikes = 8;
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2;
+    const rr = r * (0.82 + (i % 2 === 0 ? 0.18 : 0));
+    const px = Math.cos(a) * rr;
+    const py = Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -699,7 +816,7 @@ function drawPlayer() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  for (const m of meteors) (m.isNumber ? drawNumberMeteor(m) : drawMeteor(m));
+  for (const m of meteors) (m.isNumber ? drawNumberMeteor(m) : m.armored ? drawArmoredMeteor(m) : drawMeteor(m));
   for (const p of powerups) drawPowerup(p);
   for (const b of bolts) drawBolt(b);
   drawPlayer();
