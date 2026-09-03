@@ -115,6 +115,56 @@ h1::after {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.equation {
+  margin: 0;
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 5vw, 28px);
+  color: var(--comet);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.equation.hidden { display: none; }
+
+#modeToggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin: 4px 0 8px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: filter 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.mode-btn:hover { border-color: var(--comet-trail); }
+.mode-btn:focus-visible { outline: 2px solid var(--comet-trail); outline-offset: 2px; }
+
+.mode-btn.active {
+  border-color: var(--comet-trail);
+  color: var(--comet);
+  background: rgba(155, 141, 255, 0.16);
+}
+
+.mode-hint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 #stats {
   width: 100%;
   display: flex;

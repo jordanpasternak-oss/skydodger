@@ -86,6 +86,8 @@ const overlayStatus = document.getElementById("overlayStatus");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayMsg = document.getElementById("overlayMsg");
 const startBtn = document.getElementById("startBtn");
+const equationEl = document.getElementById("equation");
+const modeButtons = document.querySelectorAll(".mode-btn");
 
 const W = canvas.width;
 const H = canvas.height;
@@ -114,6 +116,11 @@ const SPAWN_RAMP_RATE = 0.0217;
 const FALL_SPEED_START = 2.3;
 const FALL_SPEED_RAMP_RATE = 0.0015;
 
+const MATH_FALL_SPEED_BASE = 1.1;
+const MATH_METEOR_SIZE = 40;
+const MATH_LEVEL_MAX = 4;
+const MATH_STREAK_TO_LEVEL_UP = 3;
+
 const player = { w: 30, h: 30, x: W / 2 - 15, y: PLAYER_START_Y, speed: 6 };
 let keys = {};
 let touchFiring = false;
@@ -138,7 +145,21 @@ let multiplierTime = 0;
 let spawnPowerupTimer = 0;
 let spawnPowerupInterval = 260 + Math.random() * 160;
 
+let selectedMode = "classic";
+let mathMode = false;
+let mathLevel = 1;
+let mathStreak = 0;
+let equation = null;
+let equationStartFrame = 0;
+
 bestEl.textContent = best;
+
+modeButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    selectedMode = btn.dataset.mode;
+    modeButtons.forEach((b) => b.classList.toggle("active", b === btn));
+  });
+});
 
 function resetGame() {
   player.x = W / 2 - player.w / 2;
@@ -159,6 +180,12 @@ function resetGame() {
   multiplierTime = 0;
   spawnPowerupTimer = 0;
   spawnPowerupInterval = 260 + Math.random() * 160;
+  mathMode = selectedMode === "math";
+  mathLevel = 1;
+  mathStreak = 0;
+  equation = null;
+  equationEl.classList.toggle("hidden", !mathMode);
+  equationEl.textContent = "";
   scoreEl.textContent = "0";
   updateBuffsUI();
 }
@@ -172,6 +199,70 @@ function spawnMeteor() {
     speed: baseFallSpeed + Math.random() * 1.5,
     angle: Math.random() * Math.PI * 2,
     spin: (Math.random() - 0.5) * 0.08,
+  });
+}
+
+function generateEquation(level) {
+  let a, b, op, answer;
+  if (level <= 1) {
+    op = "+";
+    a = 1 + Math.floor(Math.random() * 9);
+    b = 1 + Math.floor(Math.random() * 9);
+    answer = a + b;
+  } else if (level === 2) {
+    op = Math.random() < 0.5 ? "+" : "-";
+    a = 1 + Math.floor(Math.random() * 9);
+    b = 1 + Math.floor(Math.random() * 9);
+    if (op === "-" && a < b) { const t = a; a = b; b = t; }
+    answer = op === "+" ? a + b : a - b;
+  } else if (level === 3) {
+    op = Math.random() < 0.5 ? "+" : "-";
+    a = 5 + Math.floor(Math.random() * 15);
+    b = 1 + Math.floor(Math.random() * 15);
+    if (op === "-" && a < b) { const t = a; a = b; b = t; }
+    answer = op === "+" ? a + b : a - b;
+  } else {
+    op = "×";
+    a = 1 + Math.floor(Math.random() * 9);
+    b = 1 + Math.floor(Math.random() * 9);
+    answer = a * b;
+  }
+  return { text: `${a} ${op} ${b} = ?`, answer };
+}
+
+function spawnEquationMeteors() {
+  equation = generateEquation(mathLevel);
+  equationStartFrame = elapsed;
+  equationEl.textContent = equation.text;
+
+  const values = new Set([equation.answer]);
+  let guard = 0;
+  while (values.size < 3 && guard < 50) {
+    guard++;
+    const delta = 1 + Math.floor(Math.random() * 4);
+    const candidate = equation.answer + (Math.random() < 0.5 ? -delta : delta);
+    if (candidate >= 0) values.add(candidate);
+  }
+  const vals = Array.from(values);
+  for (let i = vals.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [vals[i], vals[j]] = [vals[j], vals[i]];
+  }
+
+  const slotW = W / vals.length;
+  const speed = MATH_FALL_SPEED_BASE + Math.min(mathLevel - 1, MATH_LEVEL_MAX) * 0.15;
+  vals.forEach((val, i) => {
+    meteors.push({
+      x: slotW * i + slotW / 2 - MATH_METEOR_SIZE / 2 + (Math.random() * 16 - 8),
+      y: -MATH_METEOR_SIZE - i * 50,
+      size: MATH_METEOR_SIZE,
+      speed,
+      angle: 0,
+      spin: 0,
+      isNumber: true,
+      value: val,
+      correct: val === equation.answer,
+    });
   });
 }
 
@@ -291,21 +382,27 @@ function update() {
   for (const b of bolts) b.y -= 9;
   bolts = bolts.filter((b) => b.y > -20);
 
-  spawnTimer++;
-  if (spawnTimer >= spawnInterval) {
-    spawnTimer = 0;
-    spawnMeteor();
-  }
+  if (mathMode) {
+    if (meteors.filter((m) => m.isNumber).length === 0) {
+      spawnEquationMeteors();
+    }
+  } else {
+    spawnTimer++;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnMeteor();
+    }
 
-  spawnPowerupTimer++;
-  if (spawnPowerupTimer >= spawnPowerupInterval && powerups.length === 0) {
-    spawnPowerupTimer = 0;
-    spawnPowerupInterval = 260 + Math.random() * 160;
-    spawnPowerup();
-  }
+    spawnPowerupTimer++;
+    if (spawnPowerupTimer >= spawnPowerupInterval && powerups.length === 0) {
+      spawnPowerupTimer = 0;
+      spawnPowerupInterval = 260 + Math.random() * 160;
+      spawnPowerup();
+    }
 
-  spawnInterval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval - SPAWN_RAMP_RATE);
-  baseFallSpeed += FALL_SPEED_RAMP_RATE;
+    spawnInterval = Math.max(SPAWN_INTERVAL_MIN, spawnInterval - SPAWN_RAMP_RATE);
+    baseFallSpeed += FALL_SPEED_RAMP_RATE;
+  }
 
   for (const m of meteors) {
     m.y += m.speed;
@@ -321,6 +418,7 @@ function update() {
 
   const meteorsHit = new Set();
   const boltsUsed = new Set();
+  let correctHit = false;
   for (const b of bolts) {
     for (const m of meteors) {
       if (meteorsHit.has(m) || boltsUsed.has(b)) continue;
@@ -329,14 +427,33 @@ function update() {
       if (Math.hypot(dx, dy) < m.size / 2 + 4) {
         meteorsHit.add(m);
         boltsUsed.add(b);
-        spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ffd166", "#ff8a4c"], 14);
-        score += (multiplierTime > 0 ? 2 : 1) * 15;
+        if (m.isNumber) {
+          if (m.correct) {
+            correctHit = true;
+            const answerTime = (elapsed - equationStartFrame) / 60;
+            const speedBonus = Math.max(0, 30 - answerTime * 8);
+            score += Math.round((30 + speedBonus) * (multiplierTime > 0 ? 2 : 1));
+            mathStreak++;
+            if (mathStreak >= MATH_STREAK_TO_LEVEL_UP) {
+              mathStreak = 0;
+              mathLevel = Math.min(mathLevel + 1, MATH_LEVEL_MAX);
+            }
+            spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#6fe7a6", "#ede9ff"], 20);
+          } else {
+            mathStreak = 0;
+            spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ff6b57", "#ede9ff"], 10);
+          }
+        } else {
+          spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ffd166", "#ff8a4c"], 14);
+          score += (multiplierTime > 0 ? 2 : 1) * 15;
+        }
         break;
       }
     }
   }
   if (meteorsHit.size) meteors = meteors.filter((m) => !meteorsHit.has(m));
   if (boltsUsed.size) bolts = bolts.filter((b) => !boltsUsed.has(b));
+  if (correctHit) meteors = meteors.filter((m) => !m.isNumber);
 
   const cx = player.x + player.w / 2;
   const cy = player.y + player.h / 2;
@@ -418,6 +535,29 @@ function drawMeteor(m) {
   }
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+function drawNumberMeteor(m) {
+  const cx = m.x + m.size / 2;
+  const cy = m.y + m.size / 2;
+  const r = m.size / 2;
+  ctx.save();
+  ctx.shadowColor = "#9b8dff";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "rgba(20, 12, 36, 0.85)";
+  ctx.strokeStyle = "#9b8dff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#ede9ff";
+  ctx.font = "700 18px Rajdhani, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(m.value), cx, cy + 1);
   ctx.restore();
 }
 
@@ -559,7 +699,7 @@ function drawPlayer() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  for (const m of meteors) drawMeteor(m);
+  for (const m of meteors) (m.isNumber ? drawNumberMeteor(m) : drawMeteor(m));
   for (const p of powerups) drawPowerup(p);
   for (const b of bolts) drawBolt(b);
   drawPlayer();
@@ -603,6 +743,7 @@ function gameOver() {
   if (shieldPillEl) { shieldPillEl.remove(); shieldPillEl = null; }
   if (boostPillEl) { boostPillEl.remove(); boostPillEl = null; }
   if (laserPillEl) { laserPillEl.remove(); laserPillEl = null; }
+  equationEl.classList.add("hidden");
 }
 
 function startGame() {

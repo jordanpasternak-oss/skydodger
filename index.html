@@ -14,6 +14,7 @@
     <span class="eyebrow">Arcade &middot; Reflex</span>
     <h1>Comet Run</h1>
     <p class="tagline">Dodge or blast the meteor storm. Survive the drop.</p>
+    <p id="equation" class="equation hidden"></p>
 
     <div id="stats">
       <div class="stat score">
@@ -41,6 +42,11 @@
           <span id="overlayStatus">&gt; Standby</span>
           <h2 id="overlayTitle">Comet Run</h2>
           <p id="overlayMsg">Fly free in every direction &mdash; dodge or blast the meteors. Grab cyan shield, green &times;2, and pink laser pickups when they fall.</p>
+          <div id="modeToggle" role="group" aria-label="Game mode">
+            <button type="button" class="mode-btn active" data-mode="classic">Classic</button>
+            <button type="button" class="mode-btn" data-mode="math">Math</button>
+          </div>
+          <p class="mode-hint">Math: shoot the meteor with the right answer.</p>
           <button id="startBtn">Launch</button>
         </div>
       </div>
