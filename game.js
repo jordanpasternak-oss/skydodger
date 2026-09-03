@@ -88,6 +88,20 @@ const overlayMsg = document.getElementById("overlayMsg");
 const startBtn = document.getElementById("startBtn");
 const equationEl = document.getElementById("equation");
 const modeButtons = document.querySelectorAll(".mode-btn");
+const modeHintEl = document.getElementById("modeHint");
+const scoreLabelEl = document.getElementById("scoreLabel");
+const bestLabelEl = document.getElementById("bestLabel");
+
+const MODE_HINTS = {
+  classic: "Classic: dodge or blast the meteor storm.",
+  math: "Math: shoot the meteor with the right answer.",
+  silly: "Silly: fetch treats, dodge tennis balls, good boy.",
+};
+const MODE_LABELS = {
+  classic: { score: "Score", best: "Best" },
+  math: { score: "Score", best: "Best" },
+  silly: { score: "Treats", best: "Top dog" },
+};
 
 const W = canvas.width;
 const H = canvas.height;
@@ -157,6 +171,7 @@ let spawnPowerupInterval = 260 + Math.random() * 160;
 
 let selectedMode = "classic";
 let mathMode = false;
+let sillyMode = false;
 let mathLevel = 1;
 let mathStreak = 0;
 let equation = null;
@@ -168,6 +183,10 @@ modeButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     selectedMode = btn.dataset.mode;
     modeButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    modeHintEl.textContent = MODE_HINTS[selectedMode];
+    scoreLabelEl.textContent = MODE_LABELS[selectedMode].score;
+    bestLabelEl.textContent = MODE_LABELS[selectedMode].best;
+    if (fireBtn) fireBtn.setAttribute("aria-label", selectedMode === "silly" ? "Throw biscuit" : "Fire laser");
   });
 });
 
@@ -193,6 +212,7 @@ function resetGame() {
   spawnPowerupTimer = 0;
   spawnPowerupInterval = 260 + Math.random() * 160;
   mathMode = selectedMode === "math";
+  sillyMode = selectedMode === "silly";
   mathLevel = 1;
   mathStreak = 0;
   equation = null;
@@ -377,7 +397,8 @@ function updateBuffsUI() {
     laserPillEl.className = "buff-pill laser";
     buffsEl.appendChild(laserPillEl);
   }
-  laserPillEl.textContent = weaponLevel >= WEAPON_MAX ? "Laser · Overcharge" : `Laser · Lv ${weaponLevel}`;
+  const laserLabel = sillyMode ? "Biscuits" : "Laser";
+  laserPillEl.textContent = weaponLevel >= WEAPON_MAX ? `${laserLabel} · Overcharge` : `${laserLabel} · Lv ${weaponLevel}`;
 
   if (shieldCharges > 0) {
     if (!shieldPillEl) {
@@ -385,7 +406,7 @@ function updateBuffsUI() {
       shieldPillEl.className = "buff-pill shield";
       buffsEl.appendChild(shieldPillEl);
     }
-    shieldPillEl.textContent = `Shield · Lv ${shieldCharges}`;
+    shieldPillEl.textContent = `${sillyMode ? "Bubbles" : "Shield"} · Lv ${shieldCharges}`;
   } else if (shieldPillEl) {
     shieldPillEl.remove();
     shieldPillEl = null;
@@ -655,6 +676,54 @@ function drawArmoredMeteor(m) {
   ctx.restore();
 }
 
+function drawTennisBall(m) {
+  ctx.save();
+  ctx.translate(m.x + m.size / 2, m.y + m.size / 2);
+  ctx.rotate(m.angle);
+  const r = m.size / 2;
+  ctx.fillStyle = "#cdea3e";
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#eef8c8";
+  ctx.lineWidth = Math.max(1.5, r * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.7, -r * 0.55);
+  ctx.quadraticCurveTo(0, 0, -r * 0.7, r * 0.55);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(r * 0.7, -r * 0.55);
+  ctx.quadraticCurveTo(0, 0, r * 0.7, r * 0.55);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBeachBall(m) {
+  ctx.save();
+  ctx.translate(m.x + m.size / 2, m.y + m.size / 2);
+  ctx.rotate(m.angle);
+  const r = m.size / 2;
+  const colors = ["#ff6b57", "#ffd166", "#63e6e0", "#9b8dff", "#6fe7a6", "#ff5fa2"];
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r, (i / 6) * Math.PI * 2, ((i + 1) / 6) * Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = m.hp > 1 ? "#ff8a4c" : "#ff4c4c";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawNumberMeteor(m) {
   const cx = m.x + m.size / 2;
   const cy = m.y + m.size / 2;
@@ -684,7 +753,21 @@ function drawPowerup(p) {
   ctx.rotate(p.angle);
   const r = p.size / 2;
 
-  if (p.type === "shield") {
+  if (p.type === "shield" && sillyMode) {
+    ctx.shadowColor = "#9fd8f5";
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = "rgba(223, 243, 255, 0.55)";
+    ctx.strokeStyle = "#9fd8f5";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-r * 0.35, -r * 0.35, r * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.fill();
+  } else if (p.type === "shield") {
     ctx.shadowColor = "#63e6e0";
     ctx.shadowBlur = 14;
     ctx.strokeStyle = "#63e6e0";
@@ -701,6 +784,15 @@ function drawPowerup(p) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+  } else if (p.type === "weapon" && sillyMode) {
+    ctx.shadowColor = "#ff5fa2";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#d9a55c";
+    ctx.beginPath(); ctx.arc(-r * 0.45, -r * 0.35, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.45, r * 0.35, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.45, -r * 0.35, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.45, r * 0.35, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(-r * 0.45, -r * 0.3, r * 0.9, r * 0.6);
   } else if (p.type === "weapon") {
     ctx.shadowColor = "#ff5fa2";
     ctx.shadowBlur = 14;
@@ -718,6 +810,18 @@ function drawPowerup(p) {
     ctx.lineTo(0, -r * 0.1);
     ctx.lineTo(r * 0.55, r * 0.7);
     ctx.stroke();
+  } else if (sillyMode) {
+    ctx.shadowColor = "#6fe7a6";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#6fe7a6";
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(-r * 0.5, -r * 0.5, r, r * 1.1, 3);
+      ctx.fill();
+    } else {
+      ctx.fillRect(-r * 0.5, -r * 0.5, r, r * 1.1);
+    }
+    ctx.fillRect(-r * 0.3, -r * 0.75, r * 0.6, r * 0.3);
   } else {
     ctx.shadowColor = "#6fe7a6";
     ctx.shadowBlur = 14;
@@ -739,6 +843,21 @@ function drawPowerup(p) {
 }
 
 function drawBolt(b) {
+  if (sillyMode) {
+    ctx.save();
+    ctx.shadowColor = "#e8c39e";
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = "#d9a55c";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y - 7, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(b.x, b.y + 3, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(b.x - 2, b.y - 7, 4, 10);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.shadowColor = "#c9c2ff";
   ctx.shadowBlur = 8;
@@ -756,20 +875,7 @@ function drawBolt(b) {
   ctx.restore();
 }
 
-function drawPlayer() {
-  const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
-  const r = player.w / 2;
-
-  for (const t of trail) {
-    ctx.globalAlpha = Math.max(t.life / 18, 0) * 0.5;
-    ctx.fillStyle = "#9b8dff";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, r * 0.35 * (t.life / 18), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
+function drawShip(cx, cy) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.shadowColor = "#9b8dff";
@@ -796,11 +902,69 @@ function drawPlayer() {
   ctx.arc(0, -11, 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+function drawPuppy(cx, cy) {
+  const r = player.w / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.shadowColor = "#f5c98a";
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = "#c9955f";
+  ctx.beginPath();
+  ctx.ellipse(-0.8 * r, -0.37 * r, 0.37 * r, 0.85 * r, -0.314, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0.8 * r, -0.37 * r, 0.37 * r, 0.85 * r, 0.314, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8c39e";
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#f5e6d0";
+  ctx.beginPath();
+  ctx.ellipse(0, 0.52 * r, 0.56 * r, 0.44 * r, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#3a2415";
+  ctx.beginPath();
+  ctx.arc(0, 0.68 * r, 0.12 * r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-0.39 * r, -0.19 * r, 0.12 * r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0.39 * r, -0.19 * r, 0.12 * r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const cx = player.x + player.w / 2;
+  const cy = player.y + player.h / 2;
+  const r = player.w / 2;
+
+  const trailColor = sillyMode ? "#e8c39e" : "#9b8dff";
+  for (const t of trail) {
+    ctx.globalAlpha = Math.max(t.life / 18, 0) * 0.5;
+    ctx.fillStyle = trailColor;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, r * 0.35 * (t.life / 18), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  if (sillyMode) {
+    drawPuppy(cx, cy);
+  } else {
+    drawShip(cx, cy);
+  }
 
   if (shieldCharges > 0) {
     ctx.save();
-    ctx.strokeStyle = "#63e6e0";
-    ctx.shadowColor = "#63e6e0";
+    const shieldColor = sillyMode ? "#9fd8f5" : "#63e6e0";
+    ctx.strokeStyle = shieldColor;
+    ctx.shadowColor = shieldColor;
     ctx.shadowBlur = 10;
     ctx.lineWidth = 2;
     for (let i = 0; i < shieldCharges; i++) {
@@ -816,7 +980,11 @@ function drawPlayer() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  for (const m of meteors) (m.isNumber ? drawNumberMeteor(m) : m.armored ? drawArmoredMeteor(m) : drawMeteor(m));
+  for (const m of meteors) {
+    if (m.isNumber) drawNumberMeteor(m);
+    else if (m.armored) (sillyMode ? drawBeachBall(m) : drawArmoredMeteor(m));
+    else (sillyMode ? drawTennisBall(m) : drawMeteor(m));
+  }
   for (const p of powerups) drawPowerup(p);
   for (const b of bolts) drawBolt(b);
   drawPlayer();

@@ -18,12 +18,12 @@
 
     <div id="stats">
       <div class="stat score">
-        <span class="stat-label">Score</span>
+        <span class="stat-label" id="scoreLabel">Score</span>
         <span class="stat-value" id="score">0</span>
       </div>
       <div class="divider"></div>
       <div class="stat best">
-        <span class="stat-label">Best</span>
+        <span class="stat-label" id="bestLabel">Best</span>
         <span class="stat-value" id="best">0</span>
       </div>
     </div>
@@ -45,8 +45,9 @@
           <div id="modeToggle" role="group" aria-label="Game mode">
             <button type="button" class="mode-btn active" data-mode="classic">Classic</button>
             <button type="button" class="mode-btn" data-mode="math">Math</button>
+            <button type="button" class="mode-btn" data-mode="silly">Silly</button>
           </div>
-          <p class="mode-hint">Math: shoot the meteor with the right answer.</p>
+          <p class="mode-hint" id="modeHint">Classic: dodge or blast the meteor storm.</p>
           <button id="startBtn">Launch</button>
         </div>
       </div>
