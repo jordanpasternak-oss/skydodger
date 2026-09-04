@@ -228,21 +228,55 @@ canvas#game {
   touch-action: none;
 }
 
+#touchControls {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.52s forwards;
+}
+
+#touchpad {
+  flex: 1;
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#touchpad:active { cursor: grabbing; }
+
+.touchpad-grip {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  pointer-events: none;
+}
+
 #fireBtn {
-  position: absolute;
-  right: 28px;
-  bottom: 28px;
-  width: 44px;
-  height: 44px;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: 1px solid var(--laser);
   background: rgba(255, 95, 162, 0.14);
   color: var(--laser);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: none;
   transition: filter 0.1s ease, transform 0.1s ease;
 }
 
