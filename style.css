@@ -278,21 +278,75 @@ canvas#game {
   touch-action: none;
 }
 
-#fireBtn {
+#touchControls {
+  display: none;
+  width: 100%;
+  max-width: 440px;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 0.52s forwards;
+}
+
+@media (pointer: coarse) {
+  #touchControls {
+    display: flex;
+  }
+}
+
+#touchpad {
+  flex: 1;
+  height: 120px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#touchpad:active { cursor: grabbing; }
+
+#touchpad::before,
+#touchpad::after {
+  content: "";
   position: absolute;
-  right: 28px;
-  bottom: 28px;
-  width: 44px;
-  height: 44px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+#touchpad::before { width: 46px; height: 1px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+#touchpad::after { width: 1px; height: 46px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+.touchpad-grip {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  pointer-events: none;
+  position: absolute;
+  bottom: 8px;
+}
+
+#fireBtn {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: 1px solid var(--laser);
   background: rgba(255, 95, 162, 0.14);
   color: var(--laser);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: none;
   transition: filter 0.1s ease, transform 0.1s ease;
 }
 

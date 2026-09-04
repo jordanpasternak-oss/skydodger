@@ -1065,24 +1065,37 @@ if (fireBtn) {
   fireBtn.addEventListener("mouseleave", setFiring(false));
 }
 
-let touchX = null;
-let touchY = null;
-canvas.addEventListener("touchstart", (e) => {
-  touchX = e.touches[0].clientX;
-  touchY = e.touches[0].clientY;
-});
-canvas.addEventListener("touchmove", (e) => {
-  if (touchX === null) return;
+const touchpad = document.getElementById("touchpad");
+let dragX = null;
+let dragY = null;
+
+function dragMove(clientX, clientY) {
+  if (dragX === null) return;
   const rect = canvas.getBoundingClientRect();
   const scaleX = W / rect.width;
   const scaleY = H / rect.height;
-  const dx = (e.touches[0].clientX - touchX) * scaleX;
-  const dy = (e.touches[0].clientY - touchY) * scaleY;
+  const dx = (clientX - dragX) * scaleX;
+  const dy = (clientY - dragY) * scaleY;
   player.x = Math.max(0, Math.min(W - player.w, player.x + dx));
   player.y = Math.max(PLAYER_Y_MIN, Math.min(PLAYER_Y_MAX, player.y + dy));
-  touchX = e.touches[0].clientX;
-  touchY = e.touches[0].clientY;
-  e.preventDefault();
-}, { passive: false });
+  dragX = clientX;
+  dragY = clientY;
+}
+
+if (touchpad) {
+  touchpad.addEventListener("touchstart", (e) => {
+    dragX = e.touches[0].clientX;
+    dragY = e.touches[0].clientY;
+    e.preventDefault();
+  }, { passive: false });
+  touchpad.addEventListener("touchmove", (e) => {
+    dragMove(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  touchpad.addEventListener("touchend", () => { dragX = null; dragY = null; });
+  touchpad.addEventListener("mousedown", (e) => { dragX = e.clientX; dragY = e.clientY; });
+  window.addEventListener("mousemove", (e) => dragMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", () => { dragX = null; dragY = null; });
+}
 
 draw();

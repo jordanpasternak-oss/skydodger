@@ -36,7 +36,6 @@
       <span class="bracket bl"></span>
       <span class="bracket br"></span>
       <canvas id="game" width="440" height="550"></canvas>
-      <button id="fireBtn" aria-label="Fire laser">&#9650;</button>
       <div id="overlay">
         <div id="overlayCard">
           <span id="overlayStatus">&gt; Standby</span>
@@ -53,7 +52,14 @@
       </div>
     </div>
 
-    <p class="controls-hint">Arrows or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to fly &middot; <kbd>Space</kbd> to fire &middot; drag + tap on touch</p>
+    <div id="touchControls">
+      <div id="touchpad" aria-label="Drag to fly">
+        <span class="touchpad-grip">DRAG TO FLY</span>
+      </div>
+      <button id="fireBtn" aria-label="Fire laser">&#9650;</button>
+    </div>
+
+    <p class="controls-hint">Arrows or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to fly &middot; <kbd>Space</kbd> to fire &middot; on touch, drag the pad below and tap &#9650; to fire</p>
   </div>
   <script src="game.js"></script>
 </body>
