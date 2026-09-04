@@ -140,8 +140,9 @@ const ARMORED_KILL_SCORE = 30;
 
 const MATH_FALL_SPEED_BASE = 1.1;
 const MATH_METEOR_SIZE = 40;
-const MATH_LEVEL_MAX = 4;
+const MATH_LEVEL_MAX = 6;
 const MATH_STREAK_TO_LEVEL_UP = 3;
+const MATH_WRONG_PENALTY = 20; // raw score (÷10 for the displayed value), below the 30-60 raw a correct hit awards
 
 const player = { w: 30, h: 30, x: W / 2 - 15, y: PLAYER_START_Y, speed: 6 };
 let keys = {};
@@ -286,13 +287,24 @@ function generateEquation(level) {
     b = 1 + Math.floor(Math.random() * 15);
     if (op === "-" && a < b) { const t = a; a = b; b = t; }
     answer = op === "+" ? a + b : a - b;
-  } else {
+  } else if (level === 4) {
     op = "×";
     a = 1 + Math.floor(Math.random() * 9);
     b = 1 + Math.floor(Math.random() * 9);
     answer = a * b;
+  } else if (level === 5) {
+    op = "÷";
+    b = 2 + Math.floor(Math.random() * 8); // divisor 2-9
+    answer = 1 + Math.floor(Math.random() * 9); // quotient 1-9
+    a = b * answer; // always divides evenly
+  } else {
+    op = "²";
+    a = 2 + Math.floor(Math.random() * 11); // 2-12
+    answer = a * a;
   }
-  return { text: `${a} ${op} ${b} = ?`, answer };
+
+  const text = op === "²" ? `${a}² = ?` : `${a} ${op} ${b} = ?`;
+  return { text, answer };
 }
 
 function spawnEquationMeteors() {
@@ -541,6 +553,7 @@ function update() {
             spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#6fe7a6", "#ede9ff"], 20);
           } else {
             mathStreak = 0;
+            score = Math.max(0, score - MATH_WRONG_PENALTY);
             spawnEmberBurst(m.x + m.size / 2, m.y + m.size / 2, ["#ff6b57", "#ede9ff"], 10);
           }
         } else {
